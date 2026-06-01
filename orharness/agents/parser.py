@@ -2,6 +2,7 @@ import json
 from litellm import completion
 from orharness.models import ParsedProblem, ProblemType, Confidence, ORHarnessConfig
 from orharness.exceptions import ClassificationError, LowConfidenceError
+from orharness.json_utils import extract_json
 
 PARSER_PROMPT = """You are an expert in operations research and mathematical optimization.
 
@@ -47,7 +48,7 @@ def parse_problem(user_input: str, config: ORHarnessConfig) -> ParsedProblem:
     raw_text = response.choices[0].message.content
 
     try:
-        data = json.loads(raw_text)
+        data = json.loads(extract_json(raw_text))
     except json.JSONDecodeError:
         raise ClassificationError(
             f"Parser returned invalid JSON: {raw_text}"

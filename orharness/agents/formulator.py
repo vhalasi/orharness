@@ -7,6 +7,7 @@ from orharness.models import (
     ORHarnessConfig
 )
 from orharness.exceptions import FormulationError
+from orharness.json_utils import extract_json
 
 FORMULATOR_PROMPT = """You are an expert operations research mathematician.
 
@@ -67,7 +68,7 @@ Objective: {parsed.objective}
     raw_text = response.choices[0].message.content
 
     try:
-        data = json.loads(raw_text)
+        data = json.loads(extract_json(raw_text))
     except json.JSONDecodeError:
         raise FormulationError(
             f"Formulator returned invalid JSON: {raw_text}"
