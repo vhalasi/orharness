@@ -27,5 +27,7 @@ dev = [
   "black",
   "ruff",
   "build",
-  "twine"
+  "twine",
+  "python-dotenv",
+  "jupyter"
 ]
