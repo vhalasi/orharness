@@ -21,7 +21,7 @@ pip install orharness
 ```python
 from orharness import ORHarness
 
-harness = ORHarness(model="claude-sonnet-4-20250514")
+harness = ORHarness(model="claude-sonnet-4-6")
 result = harness.solve("I have 6 nurses, 3 shifts per day, max 40hrs/week...")
 
 print(result.solution)            # plain English schedule
