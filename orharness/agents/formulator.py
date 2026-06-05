@@ -4,7 +4,8 @@ from orharness.models import (
     ParsedProblem,
     FormulatedModel,
     ProblemType,
-    ORHarnessConfig
+    ObjectiveKind,
+    ORHarnessConfig,
 )
 from orharness.exceptions import FormulationError
 from orharness.json_utils import extract_json
@@ -25,10 +26,11 @@ For allocation problems define item values, weights, and capacity limits explici
 Return ONLY a valid JSON object with exactly this structure, no explanation, no markdown:
 {
     "problem_type": "scheduling" or "routing" or "allocation",
+    "objective_kind": "feasibility" or "minimize" or "maximize",
     "variables": [
         "description of each decision variable with its type and indices"
     ],
-    "objective": "precise mathematical description of what to minimize or maximize",
+    "objective": "precise mathematical description, or null if feasibility",
     "constraints": [
         "precise formal description of each constraint with exact numbers"
     ],
@@ -38,11 +40,36 @@ Return ONLY a valid JSON object with exactly this structure, no explanation, no 
 }
 
 Rules:
+- objective_kind must match the input exactly. Do not change it.
+- If objective_kind is "feasibility": set objective to null. Do NOT add penalty
+  variables, slack variables, or soft objectives. Only hard constraints.
+- If objective_kind is "minimize" or "maximize": write a precise mathematical
+  objective in the objective field that matches the objective_description.
 - variables must be explicit: include type (binary/integer/continuous), name, and indices
 - constraints must include exact numbers from the problem, not vague descriptions
 - parameters must contain ALL numerical values needed to build the model
-- if the problem only requires feasibility, set objective to "find feasible solution"
 """
+
+def _validate_formulation(parsed: ParsedProblem, formulated: FormulatedModel) -> None:
+    if formulated.objective_kind != parsed.objective_kind:
+        raise FormulationError(
+            f"Formulator changed objective_kind: expected "
+            f"{parsed.objective_kind.value}, got {formulated.objective_kind.value}"
+        )
+
+    if formulated.objective_kind == ObjectiveKind.FEASIBILITY:
+        if formulated.objective is not None:
+            raise FormulationError(
+                "Feasibility problem must not have an objective"
+            )
+        return
+
+    if not formulated.objective:
+        raise FormulationError(
+            f"Optimization problem ({formulated.objective_kind.value}) "
+            "must have an objective"
+        )
+
 
 def formulate_problem(
     parsed: ParsedProblem,
@@ -51,9 +78,10 @@ def formulate_problem(
 
     problem_summary = f"""
 Problem type: {parsed.problem_type.value}
+Objective kind: {parsed.objective_kind.value}
+Objective description: {parsed.objective_description}
 Entities: {json.dumps(parsed.entities)}
 Constraints: {json.dumps(parsed.constraints)}
-Objective: {parsed.objective}
 """
 
     response = completion(
@@ -90,5 +118,7 @@ Objective: {parsed.objective}
         raise FormulationError(
             "Formulator returned no constraints"
         )
+
+    _validate_formulation(parsed, formulated)
 
     return formulated

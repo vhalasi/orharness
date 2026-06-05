@@ -5,6 +5,7 @@ from orharness.models import (
     FormulatedModel,
     GeneratedCode,
     ProblemType,
+    ObjectiveKind,
     ORSolver,
     ORHarnessConfig,
 )
@@ -69,13 +70,32 @@ pywrapcp, routing_enums_pb2).
   e.g. {"routes": [{"vehicle": 0, "stops": [0, 3, 5, 0], "distance": 120}, ...]}.
 """
 
+FEASIBILITY_GUIDANCE = """
+This is a FEASIBILITY-ONLY problem (objective_kind=feasibility):
+- Do NOT call model.Minimize(...) or model.Maximize(...).
+- Do NOT add penalty, slack, or understaffing variables.
+- Only implement the hard constraints and find any feasible solution.
+- In the result JSON, always set "objective_value": null.
+"""
+
+OPTIMIZATION_GUIDANCE = """
+This is an OPTIMIZATION problem (objective_kind is minimize or maximize):
+- Implement the objective exactly as described in the formulation.
+- In the result JSON, set objective_value to the solver's optimized value.
+"""
+
 GUIDANCE_FOR_SOLVER = {
     ORSolver.CP_SAT: CP_SAT_GUIDANCE,
     ORSolver.ROUTING: ROUTING_GUIDANCE,
 }
 
 
-def _build_system_prompt(solver: ORSolver) -> str:
+def _build_system_prompt(solver: ORSolver, objective_kind: ObjectiveKind) -> str:
+    objective_guidance = (
+        FEASIBILITY_GUIDANCE
+        if objective_kind == ObjectiveKind.FEASIBILITY
+        else OPTIMIZATION_GUIDANCE
+    )
     return f"""You are an expert Google OR-Tools programmer.
 
 You will receive a precise mathematical formulation of an optimization problem.
@@ -87,9 +107,17 @@ Requirements:
 - Inline ALL parameters from the formulation as literals. Do not read from files,
   stdin, the network, or any external source.
 - Translate every variable, constraint, and the objective faithfully and exactly.
-{GUIDANCE_FOR_SOLVER[solver]}{OUTPUT_PROTOCOL}
+{GUIDANCE_FOR_SOLVER[solver]}{objective_guidance}{OUTPUT_PROTOCOL}
 Return ONLY the Python code. No explanation, no markdown fences.
 """
+
+
+def _validate_generated_code(formulated: FormulatedModel, code: str) -> None:
+    if formulated.objective_kind == ObjectiveKind.FEASIBILITY:
+        if "Minimize" in code or "Maximize" in code:
+            raise CodeGenerationError(
+                "Feasibility problem must not set an objective in generated code"
+            )
 
 
 def generate_code(
@@ -105,6 +133,7 @@ def generate_code(
 
     formulation_summary = f"""
 Problem type: {formulated.problem_type.value}
+Objective kind: {formulated.objective_kind.value}
 Variables: {json.dumps(formulated.variables)}
 Objective: {formulated.objective}
 Constraints: {json.dumps(formulated.constraints)}
@@ -115,7 +144,10 @@ Parameters: {json.dumps(formulated.parameters)}
         model=config.model,
         temperature=config.temperature,
         messages=[
-            {"role": "system", "content": _build_system_prompt(solver)},
+            {
+                "role": "system",
+                "content": _build_system_prompt(solver, formulated.objective_kind),
+            },
             {"role": "user", "content": formulation_summary}
         ]
     )
@@ -137,6 +169,8 @@ Parameters: {json.dumps(formulated.parameters)}
         raise CodeGenerationError(
             "Generated code does not import ortools"
         )
+
+    _validate_generated_code(formulated, code)
 
     return GeneratedCode(
         code=code,

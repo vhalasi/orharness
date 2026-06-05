@@ -1,17 +1,22 @@
 from enum import Enum
 from typing import Optional
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 
 class ProblemType(str, Enum):
     SCHEDULING = "scheduling"
     ROUTING = "routing"
     ALLOCATION = "allocation"
     UNKNOWN = "unknown"
-    
+
 class Confidence(str, Enum):
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
+
+class ObjectiveKind(str, Enum):
+    FEASIBILITY = "feasibility"
+    MINIMIZE = "minimize"
+    MAXIMIZE = "maximize"
 
 class ParsedProblem(BaseModel):
     is_or_problem: bool
@@ -20,32 +25,35 @@ class ParsedProblem(BaseModel):
     reason: str
     entities: dict
     constraints: list[str]
-    objective: Optional[str] = None
-    
+    objective_kind: ObjectiveKind
+    objective_description: Optional[str] = None
+
 class FormulatedModel(BaseModel):
     problem_type: ProblemType
     variables: list[str]
-    objective: str
+    objective_kind: ObjectiveKind
+    objective: Optional[str] = None
     constraints: list[str]
     parameters: dict
-    
+
 class ORSolver(str, Enum):
     CP_SAT = "cp_sat"
     ROUTING = "routing"
     GLOP = "glop"        # for LINEAR in v0.2
     MIP = "mip"          # for INTEGER in v0.2
+
 class GeneratedCode(BaseModel):
     code: str
     solver: ORSolver
     problem_type: ProblemType
     attempt: int = 1
-    
+
 class ExecutionResult(BaseModel):
     success: bool
     raw_output: Optional[str] = None
     error_message: Optional[str] = None
     solve_time_seconds: Optional[float] = None
-    
+
 class SolveResult(BaseModel):
     success: bool
     solution: Optional[str] = None
@@ -60,5 +68,4 @@ class ORHarnessConfig(BaseModel):
     model: str = "claude-sonnet-4-6"
     max_retries: int = 3
     timeout_seconds: int = 30
-    temperature: float = 0.0  
-    
+    temperature: float = 0.0
