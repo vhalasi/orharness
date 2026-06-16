@@ -47,3 +47,8 @@ Thumbs.db
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Personal planning notes (not for the public repo)
+orharness/orharness_build_plan.md
+orharness/orharness_project_summary.md
+orharness/orharness_problem_coverage.md
