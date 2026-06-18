@@ -23,6 +23,11 @@ class CodeGenerationError(ORHarnessError):
     pass
 
 
+class InterpretationError(ORHarnessError):
+    """Raised when the interpreter agent fails to produce a plain-English answer."""
+    pass
+
+
 class SandboxTimeoutError(ORHarnessError):
     """Raised when the solver exceeds the timeout limit."""
     pass
