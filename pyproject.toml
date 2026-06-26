@@ -31,3 +31,16 @@ dev = [
   "python-dotenv",
   "jupyter"
 ]
+
+[project.urls]
+Homepage = "https://github.com/vhalasi/orharness"
+Repository = "https://github.com/vhalasi/orharness"
+Issues = "https://github.com/vhalasi/orharness/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["orharness*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
